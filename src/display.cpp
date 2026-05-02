@@ -247,12 +247,15 @@ static void rebuild_screen(Screen s) {
     lv_obj_set_style_bg_color(scr, lv_color_hex(0x000000), 0);
     lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
 
-    // Screen indicator dots
+    // Screen indicator dots — centered for any SCREEN_COUNT
+    int dot_spacing = 22;
+    int dot_total = SCREEN_COUNT * dot_spacing;
+    int dot_start = (360 - dot_total) / 2;
     for (int i = 0; i < SCREEN_COUNT; i++) {
         lv_obj_t *dot = lv_obj_create(scr);
         lv_obj_set_size(dot, 10, 10);
         lv_obj_set_style_radius(dot, 5, 0);
-        lv_obj_set_pos(dot, 155 + i * 25, 15);
+        lv_obj_set_pos(dot, dot_start + i * dot_spacing, 15);
         lv_obj_set_style_border_width(dot, 0, 0);
         lv_obj_set_style_bg_color(dot, (i == s) ? lv_color_hex(0x00FFFF) : lv_color_hex(0x404040), 0);
     }
@@ -260,47 +263,199 @@ static void rebuild_screen(Screen s) {
     lbl_time = lbl_date = lbl_weather = lbl_info = lbl_debug = NULL;
 
     if (s == SCREEN_CLOCK) {
+        // "KLOKKE" title
+        lv_obj_t *title = lv_label_create(scr);
+        lv_obj_set_style_text_font(title, &lv_font_montserrat_14, 0);
+        lv_obj_set_style_text_color(title, lv_color_hex(0x00BFFF), 0);
+        lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 40);
+        lv_label_set_text(title, "KLOKKE");
+
+        // Time - big, bright cyan
         lbl_time = lv_label_create(scr);
         lv_obj_set_style_text_font(lbl_time, &lv_font_montserrat_48, 0);
-        lv_obj_set_style_text_color(lbl_time, lv_color_hex(0xFFFFFF), 0);
+        lv_obj_set_style_text_color(lbl_time, lv_color_hex(0x00FFFF), 0);
         lv_obj_align(lbl_time, LV_ALIGN_CENTER, 0, -40);
         lv_label_set_text(lbl_time, "--:--:--");
 
+        // Date - warm yellow
         lbl_date = lv_label_create(scr);
         lv_obj_set_style_text_font(lbl_date, &lv_font_montserrat_24, 0);
-        lv_obj_set_style_text_color(lbl_date, lv_color_hex(0xAAAAAA), 0);
+        lv_obj_set_style_text_color(lbl_date, lv_color_hex(0xFFD700), 0);
         lv_obj_align(lbl_date, LV_ALIGN_CENTER, 0, 20);
         lv_label_set_text(lbl_date, "---");
 
+        // Weather summary - soft orange
         lbl_weather = lv_label_create(scr);
         lv_obj_set_style_text_font(lbl_weather, &lv_font_montserrat_24, 0);
-        lv_obj_set_style_text_color(lbl_weather, lv_color_hex(0x888888), 0);
+        lv_obj_set_style_text_color(lbl_weather, lv_color_hex(0xFF8C00), 0);
         lv_obj_align(lbl_weather, LV_ALIGN_CENTER, 0, 80);
         lv_label_set_text(lbl_weather, "");
     } else if (s == SCREEN_WEATHER) {
+        // "VAER" title
+        lv_obj_t *title = lv_label_create(scr);
+        lv_obj_set_style_text_font(title, &lv_font_montserrat_14, 0);
+        lv_obj_set_style_text_color(title, lv_color_hex(0xFF6600), 0);
+        lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 40);
+        lv_label_set_text(title, "VAER - VADSO");
+
+        // Temperature - big, bright orange
         lbl_time = lv_label_create(scr);
         lv_obj_set_style_text_font(lbl_time, &lv_font_montserrat_48, 0);
-        lv_obj_set_style_text_color(lbl_time, lv_color_hex(0xFFA500), 0);
+        lv_obj_set_style_text_color(lbl_time, lv_color_hex(0xFF6600), 0);
         lv_obj_align(lbl_time, LV_ALIGN_CENTER, 0, -40);
-        lv_label_set_text(lbl_time, "0.0C");
+        lv_label_set_text(lbl_time, "---");
 
+        // Condition - white
         lbl_date = lv_label_create(scr);
         lv_obj_set_style_text_font(lbl_date, &lv_font_montserrat_24, 0);
         lv_obj_set_style_text_color(lbl_date, lv_color_hex(0xFFFFFF), 0);
         lv_obj_align(lbl_date, LV_ALIGN_CENTER, 0, 20);
-        lv_label_set_text(lbl_date, "N/A");
+        lv_label_set_text(lbl_date, "Henter data...");
+
+        // Updated info - dim green
+        lbl_info = lv_label_create(scr);
+        lv_obj_set_style_text_font(lbl_info, &lv_font_montserrat_14, 0);
+        lv_obj_set_style_text_color(lbl_info, lv_color_hex(0x66CC66), 0);
+        lv_obj_align(lbl_info, LV_ALIGN_CENTER, 0, 70);
+    } else if (s == SCREEN_DIAG) {
+        // "DIAGNOSTIKK" title
+        lv_obj_t *title = lv_label_create(scr);
+        lv_obj_set_style_text_font(title, &lv_font_montserrat_14, 0);
+        lv_obj_set_style_text_color(title, lv_color_hex(0x00FF88), 0);
+        lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 35);
+        lv_label_set_text(title, "DIAGNOSTIKK");
 
         lbl_info = lv_label_create(scr);
-        lv_obj_set_style_text_font(lbl_info, &lv_font_montserrat_24, 0);
-        lv_obj_set_style_text_color(lbl_info, lv_color_hex(0x666666), 0);
-        lv_obj_align(lbl_info, LV_ALIGN_CENTER, 0, 80);
-    } else {
+        lv_obj_set_style_text_font(lbl_info, &lv_font_montserrat_14, 0);
+        lv_obj_set_style_text_color(lbl_info, lv_color_hex(0x00FF88), 0);
+        lv_obj_set_style_text_line_space(lbl_info, 6, 0);
+        lv_obj_set_style_text_align(lbl_info, LV_TEXT_ALIGN_LEFT, 0);
+        lv_obj_set_width(lbl_info, 280);
+        lv_obj_align(lbl_info, LV_ALIGN_CENTER, 0, 20);
+        lv_label_set_text(lbl_info, "Laster...");
+    } else if (s == SCREEN_TOUCH_TEST) {
+        // Title
+        lbl_time = lv_label_create(scr);
+        lv_obj_set_style_text_font(lbl_time, &lv_font_montserrat_24, 0);
+        lv_obj_set_style_text_color(lbl_time, lv_color_hex(0x00FFFF), 0);
+        lv_obj_align(lbl_time, LV_ALIGN_TOP_MID, 0, 40);
+        lv_label_set_text(lbl_time, "TOUCH TEST");
+
+        // Event indicator (big text, changes color on tap/long press)
+        lbl_date = lv_label_create(scr);
+        lv_obj_set_style_text_font(lbl_date, &lv_font_montserrat_48, 0);
+        lv_obj_set_style_text_color(lbl_date, lv_color_hex(0x404040), 0);
+        lv_obj_align(lbl_date, LV_ALIGN_CENTER, 0, -20);
+        lv_label_set_text(lbl_date, "---");
+
+        // Coordinates and state info
         lbl_info = lv_label_create(scr);
         lv_obj_set_style_text_font(lbl_info, &lv_font_montserrat_24, 0);
-        lv_obj_set_style_text_color(lbl_info, lv_color_hex(0xCCCCCC), 0);
-        lv_obj_set_style_text_line_space(lbl_info, 8, 0);
-        lv_obj_align(lbl_info, LV_ALIGN_TOP_LEFT, 40, 45);
-        lv_label_set_text(lbl_info, "Loading...");
+        lv_obj_set_style_text_color(lbl_info, lv_color_hex(0xAAAAAA), 0);
+        lv_obj_set_style_text_line_space(lbl_info, 6, 0);
+        lv_obj_align(lbl_info, LV_ALIGN_CENTER, 0, 60);
+        lv_label_set_text(lbl_info, "Trykk pa skjermen...");
+
+        // Touch point indicator (small colored circle)
+        lbl_weather = lv_obj_create(scr);
+        lv_obj_set_size(lbl_weather, 20, 20);
+        lv_obj_set_style_radius(lbl_weather, 10, 0);
+        lv_obj_set_style_bg_color(lbl_weather, lv_color_hex(0xFF0000), 0);
+        lv_obj_set_style_border_width(lbl_weather, 0, 0);
+        lv_obj_set_pos(lbl_weather, 170, 170);
+        lv_obj_add_flag(lbl_weather, LV_OBJ_FLAG_HIDDEN);
+    } else if (s == SCREEN_ANIM) {
+        // Title
+        lv_obj_t *title = lv_label_create(scr);
+        lv_obj_set_style_text_font(title, &lv_font_montserrat_14, 0);
+        lv_obj_set_style_text_color(title, lv_color_hex(0xFF00FF), 0);
+        lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 35);
+        lv_label_set_text(title, "VOLUM");
+
+        // Background arc (track) — full 270 degree sweep
+        lv_obj_t *track = lv_arc_create(scr);
+        lv_obj_set_size(track, 280, 280);
+        lv_arc_set_rotation(track, 135);
+        lv_arc_set_bg_angles(track, 0, 270);
+        lv_arc_set_value(track, 0);
+        lv_obj_set_style_arc_width(track, 20, LV_PART_MAIN);
+        lv_obj_set_style_arc_color(track, lv_color_hex(0x222222), LV_PART_MAIN);
+        lv_obj_set_style_arc_width(track, 0, LV_PART_INDICATOR);
+        lv_obj_set_style_bg_opa(track, LV_OPA_TRANSP, LV_PART_KNOB);
+        lv_obj_remove_flag(track, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_align(track, LV_ALIGN_CENTER, 0, 10);
+
+        // Value arc (indicator) — reuse lbl_weather as arc pointer
+        lbl_weather = lv_arc_create(scr);
+        lv_obj_set_size(lbl_weather, 280, 280);
+        lv_arc_set_rotation(lbl_weather, 135);
+        lv_arc_set_bg_angles(lbl_weather, 0, 270);
+        lv_arc_set_range(lbl_weather, 0, 100);
+        lv_arc_set_value(lbl_weather, 50);
+        lv_obj_set_style_arc_width(lbl_weather, 0, LV_PART_MAIN);
+        lv_obj_set_style_arc_width(lbl_weather, 20, LV_PART_INDICATOR);
+        lv_obj_set_style_arc_color(lbl_weather, lv_color_hex(0x00FF88), LV_PART_INDICATOR);
+        lv_obj_set_style_bg_opa(lbl_weather, LV_OPA_TRANSP, LV_PART_KNOB);
+        lv_obj_remove_flag(lbl_weather, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_align(lbl_weather, LV_ALIGN_CENTER, 0, 10);
+
+        // Tick marks around the arc (small dots at 0%, 25%, 50%, 75%, 100%)
+        for (int i = 0; i <= 4; i++) {
+            lv_obj_t *tick = lv_obj_create(scr);
+            lv_obj_set_size(tick, 6, 6);
+            lv_obj_set_style_radius(tick, 3, 0);
+            lv_obj_set_style_bg_color(tick, lv_color_hex(0x666666), 0);
+            lv_obj_set_style_border_width(tick, 0, 0);
+            // Position ticks around 270-degree arc starting at 135 degrees
+            float angle = (135.0f + i * 67.5f) * 3.14159f / 180.0f;
+            int cx = 180 + (int)(148.0f * cosf(angle)) - 3;
+            int cy = 190 + (int)(148.0f * sinf(angle)) - 3;
+            lv_obj_set_pos(tick, cx, cy);
+        }
+
+        // Center value — big number
+        lbl_time = lv_label_create(scr);
+        lv_obj_set_style_text_font(lbl_time, &lv_font_montserrat_48, 0);
+        lv_obj_set_style_text_color(lbl_time, lv_color_hex(0x00FF88), 0);
+        lv_obj_align(lbl_time, LV_ALIGN_CENTER, 0, -10);
+        lv_label_set_text(lbl_time, "50");
+
+        // "%" label
+        lbl_date = lv_label_create(scr);
+        lv_obj_set_style_text_font(lbl_date, &lv_font_montserrat_24, 0);
+        lv_obj_set_style_text_color(lbl_date, lv_color_hex(0x666666), 0);
+        lv_obj_align(lbl_date, LV_ALIGN_CENTER, 0, 30);
+        lv_label_set_text(lbl_date, "%");
+
+        // Left button: MUTE (reuse lbl_info as mute button box)
+        lbl_info = lv_obj_create(scr);
+        lv_obj_set_size(lbl_info, 100, 36);
+        lv_obj_set_style_radius(lbl_info, 18, 0);
+        lv_obj_set_style_bg_color(lbl_info, lv_color_hex(0x222222), 0);
+        lv_obj_set_style_border_color(lbl_info, lv_color_hex(0xFFAA00), 0);
+        lv_obj_set_style_border_width(lbl_info, 2, 0);
+        lv_obj_set_pos(lbl_info, 70, 290);
+        lv_obj_remove_flag(lbl_info, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_t *mute_lbl = lv_label_create(lbl_info);
+        lv_obj_set_style_text_font(mute_lbl, &lv_font_montserrat_14, 0);
+        lv_obj_set_style_text_color(mute_lbl, lv_color_hex(0xFFAA00), 0);
+        lv_obj_align(mute_lbl, LV_ALIGN_CENTER, 0, 0);
+        lv_label_set_text(mute_lbl, "MUTE");
+
+        // Right button: TILBAKE (reuse lbl_debug as back button box)
+        lbl_debug = lv_obj_create(scr);
+        lv_obj_set_size(lbl_debug, 100, 36);
+        lv_obj_set_style_radius(lbl_debug, 18, 0);
+        lv_obj_set_style_bg_color(lbl_debug, lv_color_hex(0x222222), 0);
+        lv_obj_set_style_border_color(lbl_debug, lv_color_hex(0xFF4444), 0);
+        lv_obj_set_style_border_width(lbl_debug, 2, 0);
+        lv_obj_set_pos(lbl_debug, 190, 290);
+        lv_obj_remove_flag(lbl_debug, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_t *back_lbl = lv_label_create(lbl_debug);
+        lv_obj_set_style_text_font(back_lbl, &lv_font_montserrat_14, 0);
+        lv_obj_set_style_text_color(back_lbl, lv_color_hex(0xFF4444), 0);
+        lv_obj_align(back_lbl, LV_ALIGN_CENTER, 0, 0);
+        lv_label_set_text(back_lbl, "TILBAKE");
     }
 
     lv_screen_load(scr);
@@ -333,7 +488,7 @@ void display_draw_weather(Screen active, float temp, const String& condition, co
     if (lbl_time) lv_label_set_text(lbl_time, buf);
     if (lbl_date) lv_label_set_text(lbl_date, condition.c_str());
     if (lbl_info) {
-        String s = "Vadso  |  Updated: " + lastUpdate;
+        String s = "Vadso  |  Oppdatert: " + lastUpdate;
         lv_label_set_text(lbl_info, s.c_str());
     }
     lv_obj_invalidate(lv_screen_active());
@@ -345,14 +500,14 @@ void display_draw_diag(Screen active, const DiagData& d) {
         char buf[256];
         uint32_t s = d.uptime;
         snprintf(buf, sizeof(buf),
-            "RSSI:     %d dBm\n"
-            "Heap:     %u KB\n"
-            "PSRAM:    %u KB\n"
-            "Uptime:   %uh %um %us\n"
-            "NTP:      %s\n"
-            "Weather:  %s\n"
-            "Encoder:  %d\n"
-            "Touch:    %d, %d",
+            "WiFi signal:   %d dBm\n"
+            "Ledig minne:   %u KB\n"
+            "Ledig PSRAM:   %u KB\n"
+            "Oppetid:       %ut %um %us\n"
+            "Sist NTP-sync: %s\n"
+            "Sist vaer:     %s\n"
+            "Hjulposisjon:  %d\n"
+            "Touch X,Y:     %d, %d",
             d.rssi, (unsigned)(d.freeHeap/1024), (unsigned)(d.freePsram/1024),
             (unsigned)(s/3600), (unsigned)((s%3600)/60), (unsigned)(s%60),
             d.lastNtpSync.c_str(), d.lastWeatherFetch.c_str(),
@@ -362,7 +517,63 @@ void display_draw_diag(Screen active, const DiagData& d) {
     lv_obj_invalidate(lv_screen_active());
 }
 
-void display_draw_touch_overlay(int x, int y) {}
+static uint32_t last_event_time = 0;
+static const char *last_event_text = "---";
+static uint32_t last_event_color = 0x404040;
+
+void display_draw_touch_test(Screen active, bool touching, int x, int y,
+                              bool tapped, bool longPressed) {
+    if (!scr || cur_screen != active) rebuild_screen(active);
+
+    uint32_t now = millis();
+
+    // Update event indicator on new events
+    if (tapped) {
+        last_event_text = "TRYKK!";
+        last_event_color = 0x00FF00;  // green
+        last_event_time = now;
+    } else if (longPressed) {
+        last_event_text = "HOLDT!";
+        last_event_color = 0xFF6600;  // orange
+        last_event_time = now;
+    }
+
+    // Fade event text back to dim after 1.5s
+    if (now - last_event_time > 1500) {
+        last_event_text = "---";
+        last_event_color = 0x404040;
+    }
+
+    // Update event indicator
+    if (lbl_date) {
+        lv_label_set_text(lbl_date, last_event_text);
+        lv_obj_set_style_text_color(lbl_date, lv_color_hex(last_event_color), 0);
+    }
+
+    // Update coordinates / state text
+    if (lbl_info) {
+        char buf[96];
+        if (touching) {
+            snprintf(buf, sizeof(buf), "BERORING\nX: %d   Y: %d", x, y);
+        } else {
+            snprintf(buf, sizeof(buf), "Ingen beroring\nSist: %d, %d", x, y);
+        }
+        lv_label_set_text(lbl_info, buf);
+    }
+
+    // Move touch point indicator (clamp to screen 360x360)
+    if (lbl_weather) {
+        if (touching && x > 0 && y > 0 && x < 360 && y < 360) {
+            lv_obj_clear_flag(lbl_weather, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_pos(lbl_weather, x - 10, y - 10);
+            lv_obj_set_style_bg_color(lbl_weather, lv_color_hex(0xFF0000), 0);
+        } else if (!touching) {
+            lv_obj_set_style_bg_color(lbl_weather, lv_color_hex(0x404040), 0);
+        }
+    }
+
+    lv_obj_invalidate(lv_screen_active());
+}
 
 void display_show_message(const char* msg, uint16_t color) {
     if (!scr) rebuild_screen(SCREEN_CLOCK);
@@ -370,6 +581,56 @@ void display_show_message(const char* msg, uint16_t color) {
 }
 
 bool display_get_touch(int* x, int* y) { return false; }
+
+// btn_hit: 0=none, 1=back pressed, 2=mute pressed
+void display_draw_knob(Screen active, int32_t value, bool muted, int btn_hit) {
+    if (!scr || cur_screen != active) rebuild_screen(active);
+
+    if (value < 0) value = 0;
+    if (value > 100) value = 100;
+
+    if (muted) {
+        if (lbl_weather) {
+            lv_arc_set_value(lbl_weather, 0);
+            lv_obj_set_style_arc_color(lbl_weather, lv_color_hex(0x333333), LV_PART_INDICATOR);
+        }
+        if (lbl_time) {
+            lv_label_set_text(lbl_time, "MUTE");
+            lv_obj_set_style_text_color(lbl_time, lv_color_hex(0xFF0040), 0);
+        }
+        if (lbl_date) lv_label_set_text(lbl_date, "");
+    } else {
+        if (lbl_weather) {
+            lv_arc_set_value(lbl_weather, value);
+            uint8_t r, g;
+            if (value < 50) { r = value * 5; g = 255; }
+            else { r = 255; g = 255 - (value - 50) * 5; }
+            lv_color_t col = lv_color_make(r, g, 0);
+            lv_obj_set_style_arc_color(lbl_weather, col, LV_PART_INDICATOR);
+            if (lbl_time) lv_obj_set_style_text_color(lbl_time, col, 0);
+        }
+        if (lbl_time) {
+            char buf[8];
+            snprintf(buf, sizeof(buf), "%d", (int)value);
+            lv_label_set_text(lbl_time, buf);
+        }
+        if (lbl_date) lv_label_set_text(lbl_date, "%");
+    }
+
+    // Button visual feedback
+    // Back button (lbl_debug): light up red when pressed
+    if (lbl_debug) {
+        lv_obj_set_style_bg_color(lbl_debug,
+            lv_color_hex(btn_hit == 1 ? 0xFF4444 : 0x222222), 0);
+    }
+    // Mute button (lbl_info): light up orange when pressed
+    if (lbl_info) {
+        uint32_t mute_bg = (btn_hit == 2) ? 0xFFAA00 : (muted ? 0x553300 : 0x222222);
+        lv_obj_set_style_bg_color(lbl_info, lv_color_hex(mute_bg), 0);
+    }
+
+    lv_obj_invalidate(lv_screen_active());
+}
 
 void display_flush() {
     lv_refr_now(lvgl_disp);

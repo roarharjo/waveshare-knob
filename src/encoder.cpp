@@ -93,17 +93,22 @@ int32_t encoder_get_count() {
     return enc_count;
 }
 
-void encoder_update_screen() {
+void encoder_update_screen(int screen_count) {
     int32_t delta = enc_count - last_switch;
     if (delta >= 1) {
-        screen_idx = (screen_idx + 1) % 3;
+        screen_idx = (screen_idx + 1) % screen_count;
         last_switch = enc_count;
     } else if (delta <= -1) {
-        screen_idx = (screen_idx - 1 + 3) % 3;
+        screen_idx = (screen_idx - 1 + screen_count) % screen_count;
         last_switch = enc_count;
     }
 }
 
 int encoder_get_screen(int screenCount) {
     return screen_idx;
+}
+
+void encoder_set_screen(int idx) {
+    screen_idx = idx;
+    last_switch = enc_count;
 }
