@@ -7,6 +7,7 @@
 #include "ntp_time.h"
 #include "weather.h"
 #include "haptic.h"
+#include "fishing.h"
 
 // Forward declaration from touch.cpp
 extern bool touch_read(int* x, int* y);
@@ -22,12 +23,7 @@ static bool latch_tapped = false;
 static bool latch_longPressed = false;
 static int latch_x = 0, latch_y = 0;
 static uint32_t latch_touch_time = 0;  // last time touch_read returned true
-static int32_t knob_value = 50;       // volume knob value (0-100)
-static int32_t knob_before_mute = 50; // value before mute
-static bool knob_muted = false;
-static int32_t knob_enc_base = 0;     // encoder count when entering knob screen
-static int knob_btn_hit = 0;          // 0=none, 1=back, 2=mute (for UI feedback)
-static bool knob_btn_acted = false;   // true once action fires, reset when finger leaves zone
+static int32_t fish_enc_base = 0;     // encoder count when entering fishing screen
 
 void setup() {
     Serial.begin(115200);
@@ -42,6 +38,7 @@ void setup() {
     wifi_init();
     ntp_init();
     weather_init();
+    fishing_init();
     Serial.println("[MAIN] Setup complete — clock starts immediately");
 }
 
@@ -106,51 +103,31 @@ void loop() {
     // Encoder poll
     encoder_poll();
     if (currentScreen == SCREEN_ANIM) {
-        // Buttons use raw `touching` + `tx/ty` — zero latency, like touch test
-        int prev_btn = knob_btn_hit;
-        if (touching && ty > 220) {
-            knob_btn_hit = (tx >= 180) ? 1 : 2;
-        } else if (!touching) {
-            knob_btn_hit = 0;
-            knob_btn_acted = false;
-        }
-        if (knob_btn_hit != prev_btn) lastDraw = 0;
+        FishingState fs = fishing_get_state();
 
-        // Fire action once per touch in zone
-        if (knob_btn_hit > 0 && !knob_btn_acted) {
-            knob_btn_acted = true;
-            if (knob_btn_hit == 1) {
-                haptic_play(HAPTIC_DOUBLE_CLICK);
-                currentScreen = SCREEN_CLOCK;
-                encoder_set_screen(SCREEN_CLOCK);
-                lastDraw = 0;
-            } else {
-                haptic_play(HAPTIC_CLICK);
-                if (knob_muted) {
-                    knob_muted = false;
-                    knob_value = knob_before_mute;
-                } else {
-                    knob_before_mute = knob_value;
-                    knob_muted = true;
-                    knob_value = 0;
+        if (fs.game_state == FISH_FIGHTING) {
+            // During fight: encoder controls reel, no screen switching
+            int32_t delta = encoder_get_count() - fish_enc_base;
+            fish_enc_base = encoder_get_count();
+            fishing_tick(delta);
+        } else {
+            // IDLE / WON / LOST: tap to start/restart, encoder navigates
+            if (latch_tapped) {
+                if (fs.game_state == FISH_IDLE || fs.game_state == FISH_WON || fs.game_state == FISH_LOST) {
+                    fishing_start();
+                    fish_enc_base = encoder_get_count();
                 }
-                lastDraw = 0;
+                latch_tapped = false;
             }
-        }
 
-        // Encoder controls volume
-        int32_t delta = encoder_get_count() - knob_enc_base;
-        if (delta != 0) {
-            if (knob_muted) {
-                knob_muted = false;
-                knob_value = knob_before_mute;
+            // Allow screen switching when not fighting
+            encoder_update_screen(SCREEN_COUNT);
+            Screen newScreen = (Screen)encoder_get_screen(SCREEN_COUNT);
+            if (newScreen != currentScreen) {
+                currentScreen = newScreen;
+                lastDraw = 0;
+                haptic_play(HAPTIC_CLICK);
             }
-            knob_value += delta * 2;
-            if (knob_value < 0) knob_value = 0;
-            if (knob_value > 100) knob_value = 100;
-            knob_enc_base = encoder_get_count();
-            haptic_play(HAPTIC_CLICK);
-            lastDraw = 0;
         }
         latch_tapped = false;
         latch_longPressed = false;
@@ -160,7 +137,7 @@ void loop() {
         Screen newScreen = (Screen)encoder_get_screen(SCREEN_COUNT);
         if (newScreen != currentScreen) {
             if (newScreen == SCREEN_ANIM) {
-                knob_enc_base = encoder_get_count();  // sync encoder position
+                fish_enc_base = encoder_get_count();
             }
             currentScreen = newScreen;
             lastDraw = 0;
@@ -220,9 +197,11 @@ void loop() {
                 latch_tapped = false;
                 latch_longPressed = false;
                 break;
-            case SCREEN_ANIM:
-                display_draw_knob(currentScreen, knob_value, knob_muted, knob_btn_hit);
+            case SCREEN_ANIM: {
+                FishingState fs = fishing_get_state();
+                display_draw_fishing(currentScreen, fs);
                 break;
+            }
             default: break;
         }
 
