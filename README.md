@@ -25,7 +25,7 @@ The rotary encoder becomes a fishing reel. Spin CW fast to cast, then reel in wi
 
 **Fish:** Kontepella, Sei, Torsk, Laks, Kveite — species is hidden during the fight and revealed on catch.
 
-**Mechanics:** Fish AI cycles through calm / restless / fighting / surging / tired phases. The optimal reel speed shifts per phase — reel too fast during a surge and the line snaps. Steadiness and acceleration affect tension and efficiency. Haptic feedback scales with speed, phase, and tension.
+**Mechanics:** Fish cycles through calm / restless / fighting / surging / tired phases. The optimal reel speed shifts per phase — reel too fast during a surge and the line snaps. Steadiness and acceleration affect tension and efficiency. Haptic feedback scales with speed, phase, and tension.
 
 ## Hardware
 
