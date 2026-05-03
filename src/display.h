@@ -35,8 +35,8 @@ void display_draw_weather(Screen active, float temp, const String& condition, co
 void display_draw_diag(Screen active, const DiagData& d);
 void display_draw_touch_test(Screen active, bool touching, int x, int y,
                               bool tapped, bool longPressed);
-// btn_hit: 0=none, 1=back pressed, 2=mute pressed
-void display_draw_knob(Screen active, int32_t value, bool muted, int btn_hit);
+#include "fishing.h"
+void display_draw_fishing(Screen active, const FishingState& fs);
 bool display_get_touch(int* x, int* y);
 void display_show_message(const char* msg, uint16_t color);
 void display_flush();

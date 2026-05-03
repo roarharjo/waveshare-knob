@@ -368,11 +368,11 @@ static void rebuild_screen(Screen s) {
         // Title
         lv_obj_t *title = lv_label_create(scr);
         lv_obj_set_style_text_font(title, &lv_font_montserrat_14, 0);
-        lv_obj_set_style_text_color(title, lv_color_hex(0xFF00FF), 0);
+        lv_obj_set_style_text_color(title, lv_color_hex(0x00AAFF), 0);
         lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 35);
-        lv_label_set_text(title, "VOLUM");
+        lv_label_set_text(title, "FISKESPILL");
 
-        // Background arc (track) — full 270 degree sweep
+        // Background arc track
         lv_obj_t *track = lv_arc_create(scr);
         lv_obj_set_size(track, 280, 280);
         lv_arc_set_rotation(track, 135);
@@ -385,13 +385,13 @@ static void rebuild_screen(Screen s) {
         lv_obj_remove_flag(track, LV_OBJ_FLAG_CLICKABLE);
         lv_obj_align(track, LV_ALIGN_CENTER, 0, 10);
 
-        // Value arc (indicator) — reuse lbl_weather as arc pointer
+        // Reel arc — reuse lbl_weather
         lbl_weather = lv_arc_create(scr);
         lv_obj_set_size(lbl_weather, 280, 280);
         lv_arc_set_rotation(lbl_weather, 135);
         lv_arc_set_bg_angles(lbl_weather, 0, 270);
         lv_arc_set_range(lbl_weather, 0, 100);
-        lv_arc_set_value(lbl_weather, 50);
+        lv_arc_set_value(lbl_weather, 0);
         lv_obj_set_style_arc_width(lbl_weather, 0, LV_PART_MAIN);
         lv_obj_set_style_arc_width(lbl_weather, 20, LV_PART_INDICATOR);
         lv_obj_set_style_arc_color(lbl_weather, lv_color_hex(0x00FF88), LV_PART_INDICATOR);
@@ -399,63 +399,37 @@ static void rebuild_screen(Screen s) {
         lv_obj_remove_flag(lbl_weather, LV_OBJ_FLAG_CLICKABLE);
         lv_obj_align(lbl_weather, LV_ALIGN_CENTER, 0, 10);
 
-        // Tick marks around the arc (small dots at 0%, 25%, 50%, 75%, 100%)
-        for (int i = 0; i <= 4; i++) {
-            lv_obj_t *tick = lv_obj_create(scr);
-            lv_obj_set_size(tick, 6, 6);
-            lv_obj_set_style_radius(tick, 3, 0);
-            lv_obj_set_style_bg_color(tick, lv_color_hex(0x666666), 0);
-            lv_obj_set_style_border_width(tick, 0, 0);
-            // Position ticks around 270-degree arc starting at 135 degrees
-            float angle = (135.0f + i * 67.5f) * 3.14159f / 180.0f;
-            int cx = 180 + (int)(148.0f * cosf(angle)) - 3;
-            int cy = 190 + (int)(148.0f * sinf(angle)) - 3;
-            lv_obj_set_pos(tick, cx, cy);
-        }
-
-        // Center value — big number
+        // Center: distance label — reuse lbl_time
         lbl_time = lv_label_create(scr);
         lv_obj_set_style_text_font(lbl_time, &lv_font_montserrat_48, 0);
-        lv_obj_set_style_text_color(lbl_time, lv_color_hex(0x00FF88), 0);
-        lv_obj_align(lbl_time, LV_ALIGN_CENTER, 0, -10);
-        lv_label_set_text(lbl_time, "50");
+        lv_obj_set_style_text_color(lbl_time, lv_color_hex(0xFFFFFF), 0);
+        lv_obj_align(lbl_time, LV_ALIGN_CENTER, 0, -20);
+        lv_label_set_text(lbl_time, "Trykk for\na kaste");
 
-        // "%" label
+        // Fish state label — reuse lbl_date
         lbl_date = lv_label_create(scr);
-        lv_obj_set_style_text_font(lbl_date, &lv_font_montserrat_24, 0);
-        lv_obj_set_style_text_color(lbl_date, lv_color_hex(0x666666), 0);
-        lv_obj_align(lbl_date, LV_ALIGN_CENTER, 0, 30);
-        lv_label_set_text(lbl_date, "%");
+        lv_obj_set_style_text_font(lbl_date, &lv_font_montserrat_14, 0);
+        lv_obj_set_style_text_color(lbl_date, lv_color_hex(0x888888), 0);
+        lv_obj_set_style_text_align(lbl_date, LV_TEXT_ALIGN_CENTER, 0);
+        lv_obj_set_width(lbl_date, 200);
+        lv_obj_align(lbl_date, LV_ALIGN_CENTER, 0, 20);
+        lv_label_set_text(lbl_date, "");
 
-        // Left button: MUTE (reuse lbl_info as mute button box)
+        // Tension bar — reuse lbl_info
         lbl_info = lv_obj_create(scr);
-        lv_obj_set_size(lbl_info, 100, 36);
-        lv_obj_set_style_radius(lbl_info, 18, 0);
-        lv_obj_set_style_bg_color(lbl_info, lv_color_hex(0x222222), 0);
-        lv_obj_set_style_border_color(lbl_info, lv_color_hex(0xFFAA00), 0);
-        lv_obj_set_style_border_width(lbl_info, 2, 0);
-        lv_obj_set_pos(lbl_info, 70, 290);
-        lv_obj_remove_flag(lbl_info, LV_OBJ_FLAG_CLICKABLE);
-        lv_obj_t *mute_lbl = lv_label_create(lbl_info);
-        lv_obj_set_style_text_font(mute_lbl, &lv_font_montserrat_14, 0);
-        lv_obj_set_style_text_color(mute_lbl, lv_color_hex(0xFFAA00), 0);
-        lv_obj_align(mute_lbl, LV_ALIGN_CENTER, 0, 0);
-        lv_label_set_text(mute_lbl, "MUTE");
+        lv_obj_set_size(lbl_info, 200, 8);
+        lv_obj_set_style_radius(lbl_info, 4, 0);
+        lv_obj_set_style_bg_color(lbl_info, lv_color_hex(0x00FF88), 0);
+        lv_obj_set_style_bg_opa(lbl_info, LV_OPA_COVER, 0);
+        lv_obj_set_style_border_width(lbl_info, 0, 0);
+        lv_obj_align(lbl_info, LV_ALIGN_CENTER, 0, 50);
 
-        // Right button: TILBAKE (reuse lbl_debug as back button box)
-        lbl_debug = lv_obj_create(scr);
-        lv_obj_set_size(lbl_debug, 100, 36);
-        lv_obj_set_style_radius(lbl_debug, 18, 0);
-        lv_obj_set_style_bg_color(lbl_debug, lv_color_hex(0x222222), 0);
-        lv_obj_set_style_border_color(lbl_debug, lv_color_hex(0xFF4444), 0);
-        lv_obj_set_style_border_width(lbl_debug, 2, 0);
-        lv_obj_set_pos(lbl_debug, 190, 290);
-        lv_obj_remove_flag(lbl_debug, LV_OBJ_FLAG_CLICKABLE);
-        lv_obj_t *back_lbl = lv_label_create(lbl_debug);
-        lv_obj_set_style_text_font(back_lbl, &lv_font_montserrat_14, 0);
-        lv_obj_set_style_text_color(back_lbl, lv_color_hex(0xFF4444), 0);
-        lv_obj_align(back_lbl, LV_ALIGN_CENTER, 0, 0);
-        lv_label_set_text(back_lbl, "TILBAKE");
+        // Speed label — reuse lbl_debug
+        lbl_debug = lv_label_create(scr);
+        lv_obj_set_style_text_font(lbl_debug, &lv_font_montserrat_14, 0);
+        lv_obj_set_style_text_color(lbl_debug, lv_color_hex(0x666666), 0);
+        lv_obj_align(lbl_debug, LV_ALIGN_CENTER, 0, 70);
+        lv_label_set_text(lbl_debug, "");
     }
 
     lv_screen_load(scr);
@@ -582,51 +556,126 @@ void display_show_message(const char* msg, uint16_t color) {
 
 bool display_get_touch(int* x, int* y) { return false; }
 
-// btn_hit: 0=none, 1=back pressed, 2=mute pressed
-void display_draw_knob(Screen active, int32_t value, bool muted, int btn_hit) {
+void display_draw_fishing(Screen active, const FishingState& fs) {
     if (!scr || cur_screen != active) rebuild_screen(active);
 
-    if (value < 0) value = 0;
-    if (value > 100) value = 100;
-
-    if (muted) {
-        if (lbl_weather) {
-            lv_arc_set_value(lbl_weather, 0);
-            lv_obj_set_style_arc_color(lbl_weather, lv_color_hex(0x333333), LV_PART_INDICATOR);
-        }
+    if (fs.game_state == FISH_IDLE) {
         if (lbl_time) {
-            lv_label_set_text(lbl_time, "MUTE");
-            lv_obj_set_style_text_color(lbl_time, lv_color_hex(0xFF0040), 0);
+            lv_obj_set_style_text_font(lbl_time, &lv_font_montserrat_24, 0);
+            lv_label_set_text(lbl_time, "Trykk for\na kaste");
+            lv_obj_set_style_text_color(lbl_time, lv_color_hex(0x00AAFF), 0);
+            lv_obj_set_style_text_align(lbl_time, LV_TEXT_ALIGN_CENTER, 0);
+            lv_obj_set_width(lbl_time, 280);
         }
         if (lbl_date) lv_label_set_text(lbl_date, "");
-    } else {
-        if (lbl_weather) {
-            lv_arc_set_value(lbl_weather, value);
-            uint8_t r, g;
-            if (value < 50) { r = value * 5; g = 255; }
-            else { r = 255; g = 255 - (value - 50) * 5; }
-            lv_color_t col = lv_color_make(r, g, 0);
-            lv_obj_set_style_arc_color(lbl_weather, col, LV_PART_INDICATOR);
-            if (lbl_time) lv_obj_set_style_text_color(lbl_time, col, 0);
-        }
-        if (lbl_time) {
-            char buf[8];
-            snprintf(buf, sizeof(buf), "%d", (int)value);
-            lv_label_set_text(lbl_time, buf);
-        }
-        if (lbl_date) lv_label_set_text(lbl_date, "%");
+        if (lbl_debug) lv_label_set_text(lbl_debug, "");
+        if (lbl_weather) lv_arc_set_value(lbl_weather, 0);
+        if (lbl_info) lv_obj_set_size(lbl_info, 0, 8);
+        lv_obj_invalidate(lv_screen_active());
+        return;
     }
 
-    // Button visual feedback
-    // Back button (lbl_debug): light up red when pressed
-    if (lbl_debug) {
-        lv_obj_set_style_bg_color(lbl_debug,
-            lv_color_hex(btn_hit == 1 ? 0xFF4444 : 0x222222), 0);
+    if (fs.game_state == FISH_WON) {
+        if (lbl_time) {
+            lv_obj_set_style_text_font(lbl_time, &lv_font_montserrat_48, 0);
+            lv_label_set_text(lbl_time, "FANGST!");
+            lv_obj_set_style_text_color(lbl_time, lv_color_hex(0x00FF88), 0);
+            lv_obj_set_style_text_align(lbl_time, LV_TEXT_ALIGN_CENTER, 0);
+            lv_obj_set_width(lbl_time, 360);
+        }
+        if (lbl_date) {
+            char buf[64];
+            snprintf(buf, sizeof(buf), "%s  %.1f kg\n%us",
+                     fs.fish_name, fs.fish_weight,
+                     (unsigned)(fs.fight_time_ms / 1000));
+            lv_label_set_text(lbl_date, buf);
+            lv_obj_set_style_text_color(lbl_date, lv_color_hex(0xFFFFFF), 0);
+        }
+        if (lbl_debug) lv_label_set_text(lbl_debug, "Trykk for a spille igjen");
+        if (lbl_weather) lv_arc_set_value(lbl_weather, 100);
+        if (lbl_info) lv_obj_set_size(lbl_info, 0, 8);
+        lv_obj_invalidate(lv_screen_active());
+        return;
     }
-    // Mute button (lbl_info): light up orange when pressed
+
+    if (fs.game_state == FISH_LOST) {
+        if (lbl_time) {
+            lv_obj_set_style_text_font(lbl_time, &lv_font_montserrat_48, 0);
+            lv_label_set_text(lbl_time, "MISTET!");
+            lv_obj_set_style_text_color(lbl_time, lv_color_hex(0xFF4444), 0);
+            lv_obj_set_style_text_align(lbl_time, LV_TEXT_ALIGN_CENTER, 0);
+            lv_obj_set_width(lbl_time, 360);
+        }
+        if (lbl_date) {
+            const char* reason = (fs.loss_reason == LOSS_LINE_SNAPPED)
+                ? "Snora royk!" : "Fisken stakk av!";
+            lv_label_set_text(lbl_date, reason);
+            lv_obj_set_style_text_color(lbl_date, lv_color_hex(0xFFAAAA), 0);
+        }
+        if (lbl_debug) lv_label_set_text(lbl_debug, "Trykk for a prove igjen");
+        if (lbl_weather) lv_arc_set_value(lbl_weather, 0);
+        if (lbl_info) lv_obj_set_size(lbl_info, 0, 8);
+        lv_obj_invalidate(lv_screen_active());
+        return;
+    }
+
+    // --- FISH_FIGHTING state ---
+    int reel_pct = (int)((1.0f - fs.line_distance / fs.start_distance) * 100.0f);
+    if (reel_pct < 0) reel_pct = 0;
+    if (reel_pct > 100) reel_pct = 100;
+
+    uint32_t arc_color;
+    if (fs.tension_pct < 50)       arc_color = 0x00FF88;
+    else if (fs.tension_pct < 75)  arc_color = 0xFFAA00;
+    else                           arc_color = 0xFF4444;
+
+    if (lbl_weather) {
+        lv_arc_set_value(lbl_weather, reel_pct);
+        lv_obj_set_style_arc_color(lbl_weather, lv_color_hex(arc_color), LV_PART_INDICATOR);
+    }
+
+    if (lbl_time) {
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%dm", (int)fs.line_distance);
+        lv_obj_set_style_text_font(lbl_time, &lv_font_montserrat_48, 0);
+        lv_label_set_text(lbl_time, buf);
+        lv_obj_set_style_text_color(lbl_time, lv_color_hex(0xFFFFFF), 0);
+        lv_obj_set_style_text_align(lbl_time, LV_TEXT_ALIGN_CENTER, 0);
+        lv_obj_set_width(lbl_time, 360);
+    }
+
+    if (lbl_date) {
+        const char* state_text;
+        uint32_t state_color;
+        switch (fs.fish_phase) {
+            case PHASE_CALM:     state_text = "Rolig";     state_color = 0x448844; break;
+            case PHASE_RESTLESS: state_text = "Urolig";    state_color = 0xFFAA00; break;
+            case PHASE_FIGHTING: state_text = "Kjemper!";  state_color = 0xFF8800; break;
+            case PHASE_SURGING:  state_text = "DRAR!";     state_color = 0xFF4444; break;
+            case PHASE_TIRED:    state_text = "Sliten";    state_color = 0x4488AA; break;
+            default:             state_text = "";          state_color = 0x888888; break;
+        }
+        lv_label_set_text(lbl_date, state_text);
+        lv_obj_set_style_text_color(lbl_date, lv_color_hex(state_color), 0);
+    }
+
     if (lbl_info) {
-        uint32_t mute_bg = (btn_hit == 2) ? 0xFFAA00 : (muted ? 0x553300 : 0x222222);
-        lv_obj_set_style_bg_color(lbl_info, lv_color_hex(mute_bg), 0);
+        int bar_w = (int)(fs.tension_pct * 2.0f);
+        if (bar_w < 0) bar_w = 0;
+        if (bar_w > 200) bar_w = 200;
+        lv_obj_set_size(lbl_info, bar_w, 8);
+        lv_obj_set_style_bg_color(lbl_info, lv_color_hex(arc_color), 0);
+        lv_obj_align(lbl_info, LV_ALIGN_CENTER, 0, 50);
+    }
+
+    if (lbl_debug) {
+        const char* speed_text;
+        if (fs.reel_speed < 0.5f)      speed_text = "";
+        else if (fs.reel_speed < 2.0f) speed_text = "Sakte";
+        else if (fs.reel_speed < 4.0f) speed_text = "Middels";
+        else if (fs.reel_speed < 6.0f) speed_text = "Fort";
+        else                           speed_text = "Maks!";
+        lv_label_set_text(lbl_debug, speed_text);
     }
 
     lv_obj_invalidate(lv_screen_active());
