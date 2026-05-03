@@ -44,7 +44,6 @@ static void process_channel(uint8_t current, uint8_t *prev, uint8_t *deb_cnt, in
             // Rising edge after pin was low for long enough — confirmed step
             *deb_cnt = 0;
             enc_count += delta;
-            Serial.printf("[ENC ] %s count=%d\n", delta > 0 ? "CW " : "CCW", (int)enc_count);
         } else {
             *deb_cnt = 0;       // bounce or still high
         }
@@ -53,7 +52,7 @@ static void process_channel(uint8_t current, uint8_t *prev, uint8_t *deb_cnt, in
 }
 
 // Timer callback — runs every 3ms on ESP timer task
-static void IRAM_ATTR enc_timer_cb(void *arg) {
+static void enc_timer_cb(void *arg) {
     uint8_t a = gpio_get_level((gpio_num_t)PIN_ENC_A);
     uint8_t b = gpio_get_level((gpio_num_t)PIN_ENC_B);
 

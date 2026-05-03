@@ -64,6 +64,4 @@ void haptic_play(uint8_t effect) {
     drv_write(DRV2605_REG_WAVESEQ1, effect);  // slot 0: effect
     drv_write(DRV2605_REG_WAVESEQ1 + 1, 0);   // slot 1: end
     drv_write(DRV2605_REG_GO, 1);              // fire
-
-    Serial.printf("[HAP ] Play effect %d\n", effect);
 }

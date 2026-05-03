@@ -1,0 +1,18 @@
+.pio/
+.vscode/
+.claude/
+
+# Secrets (WiFi credentials, API keys)
+include/secrets.h
+
+# Build artifacts
+*.bin
+*.elf
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temp reference folders (large, not part of project)
+temp_*/
+demo.zip

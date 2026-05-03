@@ -27,6 +27,7 @@ enum LossReason {
 
 // Fish type IDs
 enum FishType {
+    FISH_KONTANSEN,
     FISH_SEI,
     FISH_TORSK,
     FISH_LAKS,
@@ -46,7 +47,12 @@ struct FishingState {
     float         max_distance;      // escape threshold
     float         tension_pct;       // 0-100
     float         reel_speed;        // smoothed speed value
+    float         optimal_speed_lo;  // low end of optimal zone
+    float         optimal_speed_hi;  // high end of optimal zone
+    float         steadiness;        // 0-100 (100 = perfectly smooth)
+    float         reel_efficiency;   // 0-2x multiplier shown to player
     uint32_t      fight_time_ms;     // total fight duration
+    uint32_t      end_time_ms;       // millis() when game ended (0 if still playing)
     const char*   fish_name;         // Norwegian name (pointer to static string)
 };
 

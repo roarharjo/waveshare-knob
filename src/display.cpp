@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include "driver/spi_master.h"
 #include <lvgl.h>
+#include <math.h>
 
 // ============ RAW QSPI DRIVER (working, proven) ============
 static spi_device_handle_t spi_dev;
@@ -241,6 +242,12 @@ static lv_obj_t *lbl_weather = NULL;
 static lv_obj_t *lbl_info = NULL;
 static lv_obj_t *lbl_debug = NULL;
 
+// Fishing screen extra objects (NULL on other screens)
+static lv_obj_t *fish_speed_arc = NULL;    // inner speed gauge
+static lv_obj_t *fish_zone_arc = NULL;     // optimal zone indicator
+static lv_obj_t *fish_steady_lbl = NULL;   // steadiness label
+static lv_obj_t *fish_eff_lbl = NULL;      // efficiency label
+
 static void rebuild_screen(Screen s) {
     if (scr) lv_obj_del(scr);
     scr = lv_obj_create(NULL);
@@ -261,6 +268,7 @@ static void rebuild_screen(Screen s) {
     }
 
     lbl_time = lbl_date = lbl_weather = lbl_info = lbl_debug = NULL;
+    fish_speed_arc = fish_zone_arc = fish_steady_lbl = fish_eff_lbl = NULL;
 
     if (s == SCREEN_CLOCK) {
         // "KLOKKE" title
@@ -403,7 +411,7 @@ static void rebuild_screen(Screen s) {
         lbl_time = lv_label_create(scr);
         lv_obj_set_style_text_font(lbl_time, &lv_font_montserrat_48, 0);
         lv_obj_set_style_text_color(lbl_time, lv_color_hex(0xFFFFFF), 0);
-        lv_obj_align(lbl_time, LV_ALIGN_CENTER, 0, -20);
+        lv_obj_align(lbl_time, LV_ALIGN_CENTER, 0, -30);
         lv_label_set_text(lbl_time, "Trykk for\na kaste");
 
         // Fish state label — reuse lbl_date
@@ -412,23 +420,48 @@ static void rebuild_screen(Screen s) {
         lv_obj_set_style_text_color(lbl_date, lv_color_hex(0x888888), 0);
         lv_obj_set_style_text_align(lbl_date, LV_TEXT_ALIGN_CENTER, 0);
         lv_obj_set_width(lbl_date, 200);
-        lv_obj_align(lbl_date, LV_ALIGN_CENTER, 0, 20);
+        lv_obj_align(lbl_date, LV_ALIGN_CENTER, 0, 10);
         lv_label_set_text(lbl_date, "");
 
-        // Tension bar — reuse lbl_info
+        // Tension bar track (dark background)
+        lv_obj_t *bar_track = lv_obj_create(scr);
+        lv_obj_set_size(bar_track, 200, 8);
+        lv_obj_set_style_radius(bar_track, 4, 0);
+        lv_obj_set_style_bg_color(bar_track, lv_color_hex(0x1A1A1A), 0);
+        lv_obj_set_style_bg_opa(bar_track, LV_OPA_COVER, 0);
+        lv_obj_set_style_border_width(bar_track, 0, 0);
+        lv_obj_align(bar_track, LV_ALIGN_CENTER, 0, 42);
+
+        // Tension bar fill — reuse lbl_info
         lbl_info = lv_obj_create(scr);
         lv_obj_set_size(lbl_info, 200, 8);
         lv_obj_set_style_radius(lbl_info, 4, 0);
         lv_obj_set_style_bg_color(lbl_info, lv_color_hex(0x00FF88), 0);
         lv_obj_set_style_bg_opa(lbl_info, LV_OPA_COVER, 0);
         lv_obj_set_style_border_width(lbl_info, 0, 0);
-        lv_obj_align(lbl_info, LV_ALIGN_CENTER, 0, 50);
+        lv_obj_align(lbl_info, LV_ALIGN_CENTER, 0, 42);
 
-        // Speed label — reuse lbl_debug
+        // Steadiness label (left side)
+        fish_steady_lbl = lv_label_create(scr);
+        lv_obj_set_style_text_font(fish_steady_lbl, &lv_font_montserrat_14, 0);
+        lv_obj_set_style_text_color(fish_steady_lbl, lv_color_hex(0x666666), 0);
+        lv_obj_align(fish_steady_lbl, LV_ALIGN_CENTER, -55, 60);
+        lv_label_set_text(fish_steady_lbl, "");
+
+        // Efficiency label (right side)
+        fish_eff_lbl = lv_label_create(scr);
+        lv_obj_set_style_text_font(fish_eff_lbl, &lv_font_montserrat_14, 0);
+        lv_obj_set_style_text_color(fish_eff_lbl, lv_color_hex(0x666666), 0);
+        lv_obj_align(fish_eff_lbl, LV_ALIGN_CENTER, 55, 60);
+        lv_label_set_text(fish_eff_lbl, "");
+
+        // Fish info label — reuse lbl_debug
         lbl_debug = lv_label_create(scr);
         lv_obj_set_style_text_font(lbl_debug, &lv_font_montserrat_14, 0);
         lv_obj_set_style_text_color(lbl_debug, lv_color_hex(0x666666), 0);
-        lv_obj_align(lbl_debug, LV_ALIGN_CENTER, 0, 70);
+        lv_obj_set_style_text_align(lbl_debug, LV_TEXT_ALIGN_CENTER, 0);
+        lv_obj_set_width(lbl_debug, 200);
+        lv_obj_align(lbl_debug, LV_ALIGN_CENTER, 0, 78);
         lv_label_set_text(lbl_debug, "");
     }
 
@@ -556,126 +589,293 @@ void display_show_message(const char* msg, uint16_t color) {
 
 bool display_get_touch(int* x, int* y) { return false; }
 
+// Static flags for one-shot background updates
+static bool won_bg_set = false;
+static bool lost_bg_set = false;
+
 void display_draw_fishing(Screen active, const FishingState& fs) {
-    if (!scr || cur_screen != active) rebuild_screen(active);
+    if (!scr || cur_screen != active) {
+        Serial.printf("[DISP] Fishing rebuild_screen, state=%d\n", (int)fs.game_state);
+        rebuild_screen(active);
+        won_bg_set = false;
+        lost_bg_set = false;
+    }
+
+    // Safety: verify all LVGL objects are valid
+    if (!lbl_time || !lbl_date || !lbl_weather || !lbl_info || !lbl_debug) {
+        Serial.println("[DISP] ERROR: null LVGL object in fishing draw!");
+        return;
+    }
+
+    // Reset background flags on state transitions
+    if (fs.game_state == FISH_FIGHTING || fs.game_state == FISH_IDLE) {
+        won_bg_set = false;
+        lost_bg_set = false;
+    }
 
     if (fs.game_state == FISH_IDLE) {
         if (lbl_time) {
             lv_obj_set_style_text_font(lbl_time, &lv_font_montserrat_24, 0);
-            lv_label_set_text(lbl_time, "Trykk for\na kaste");
+            lv_label_set_text(lbl_time, "Spinn for\na kaste!");
             lv_obj_set_style_text_color(lbl_time, lv_color_hex(0x00AAFF), 0);
             lv_obj_set_style_text_align(lbl_time, LV_TEXT_ALIGN_CENTER, 0);
             lv_obj_set_width(lbl_time, 280);
         }
         if (lbl_date) lv_label_set_text(lbl_date, "");
         if (lbl_debug) lv_label_set_text(lbl_debug, "");
-        if (lbl_weather) lv_arc_set_value(lbl_weather, 0);
+        if (lbl_weather) lv_arc_set_value(lbl_weather, 1);
         if (lbl_info) lv_obj_set_size(lbl_info, 0, 8);
+        if (fish_steady_lbl) lv_label_set_text(fish_steady_lbl, "");
+        if (fish_eff_lbl) lv_label_set_text(fish_eff_lbl, "");
         lv_obj_invalidate(lv_screen_active());
         return;
     }
 
     if (fs.game_state == FISH_WON) {
+        uint32_t now = millis();
+        // Pulsing green glow on title
+        float pulse = (sinf(now * 0.008f) + 1.0f) * 0.5f;
+        uint8_t glow = (uint8_t)(0x88 + pulse * (0xFF - 0x88));
+
+        // Green-tinted background for victory (set once)
+        if (!won_bg_set) {
+            lv_obj_set_style_bg_color(scr, lv_color_make(0x00, 0x0A, 0x00), 0);
+            won_bg_set = true;
+        }
+
         if (lbl_time) {
             lv_obj_set_style_text_font(lbl_time, &lv_font_montserrat_48, 0);
             lv_label_set_text(lbl_time, "FANGST!");
-            lv_obj_set_style_text_color(lbl_time, lv_color_hex(0x00FF88), 0);
+            lv_obj_set_style_text_color(lbl_time, lv_color_make(0x00, glow, glow / 2), 0);
             lv_obj_set_style_text_align(lbl_time, LV_TEXT_ALIGN_CENTER, 0);
             lv_obj_set_width(lbl_time, 360);
         }
         if (lbl_date) {
-            char buf[64];
-            snprintf(buf, sizeof(buf), "%s  %.1f kg\n%us",
+            char buf[80];
+            uint32_t secs = fs.fight_time_ms / 1000;
+            snprintf(buf, sizeof(buf), "%s  %.1f kg\nTid: %u:%02u",
                      fs.fish_name, fs.fish_weight,
-                     (unsigned)(fs.fight_time_ms / 1000));
+                     (unsigned)(secs / 60), (unsigned)(secs % 60));
             lv_label_set_text(lbl_date, buf);
             lv_obj_set_style_text_color(lbl_date, lv_color_hex(0xFFFFFF), 0);
         }
-        if (lbl_debug) lv_label_set_text(lbl_debug, "Trykk for a spille igjen");
-        if (lbl_weather) lv_arc_set_value(lbl_weather, 100);
+        if (lbl_debug) {
+            lv_label_set_text(lbl_debug, "Spinn for a kaste igjen!");
+            lv_obj_set_style_text_color(lbl_debug, lv_color_hex(0x666666), 0);
+        }
+        if (lbl_weather) {
+            lv_arc_set_value(lbl_weather, 99);
+            lv_obj_set_style_arc_color(lbl_weather, lv_color_make(0x00, glow, glow / 2), LV_PART_INDICATOR);
+            lv_obj_set_style_opa(lbl_weather, LV_OPA_COVER, 0);
+        }
         if (lbl_info) lv_obj_set_size(lbl_info, 0, 8);
+        if (fish_steady_lbl) lv_label_set_text(fish_steady_lbl, "");
+        if (fish_eff_lbl) lv_label_set_text(fish_eff_lbl, "");
         lv_obj_invalidate(lv_screen_active());
         return;
     }
 
     if (fs.game_state == FISH_LOST) {
+        uint32_t now = millis();
+        // Pulsing red on title
+        float pulse = (sinf(now * 0.01f) + 1.0f) * 0.5f;
+        uint8_t glow = (uint8_t)(0x44 + pulse * (0xFF - 0x44));
+
+        // Red-tinted background for loss (set once)
+        if (!lost_bg_set) {
+            lv_obj_set_style_bg_color(scr, lv_color_make(0x15, 0x00, 0x00), 0);
+            lost_bg_set = true;
+        }
+
         if (lbl_time) {
             lv_obj_set_style_text_font(lbl_time, &lv_font_montserrat_48, 0);
             lv_label_set_text(lbl_time, "MISTET!");
-            lv_obj_set_style_text_color(lbl_time, lv_color_hex(0xFF4444), 0);
+            lv_obj_set_style_text_color(lbl_time, lv_color_make(glow, 0x22, 0x22), 0);
             lv_obj_set_style_text_align(lbl_time, LV_TEXT_ALIGN_CENTER, 0);
             lv_obj_set_width(lbl_time, 360);
         }
         if (lbl_date) {
+            char buf[64];
+            uint32_t secs = fs.fight_time_ms / 1000;
             const char* reason = (fs.loss_reason == LOSS_LINE_SNAPPED)
                 ? "Snora royk!" : "Fisken stakk av!";
-            lv_label_set_text(lbl_date, reason);
+            snprintf(buf, sizeof(buf), "%s\n%s %.0fkg  %u:%02u",
+                     reason, fs.fish_name, fs.fish_weight,
+                     (unsigned)(secs / 60), (unsigned)(secs % 60));
+            lv_label_set_text(lbl_date, buf);
             lv_obj_set_style_text_color(lbl_date, lv_color_hex(0xFFAAAA), 0);
         }
-        if (lbl_debug) lv_label_set_text(lbl_debug, "Trykk for a prove igjen");
-        if (lbl_weather) lv_arc_set_value(lbl_weather, 0);
+        if (lbl_debug) {
+            lv_label_set_text(lbl_debug, "Spinn for a kaste igjen!");
+            lv_obj_set_style_text_color(lbl_debug, lv_color_hex(0x666666), 0);
+        }
+        if (lbl_weather) {
+            lv_arc_set_value(lbl_weather, 0);
+            lv_obj_set_style_opa(lbl_weather, LV_OPA_COVER, 0);
+        }
         if (lbl_info) lv_obj_set_size(lbl_info, 0, 8);
+        if (fish_steady_lbl) lv_label_set_text(fish_steady_lbl, "");
+        if (fish_eff_lbl) lv_label_set_text(fish_eff_lbl, "");
         lv_obj_invalidate(lv_screen_active());
         return;
     }
 
     // --- FISH_FIGHTING state ---
-    int reel_pct = (int)((1.0f - fs.line_distance / fs.start_distance) * 100.0f);
+    uint32_t now = millis();
+
+    // Arc = line remaining (full = far away, empty = caught!)
+    int reel_pct = (int)((fs.line_distance / fs.start_distance) * 100.0f);
     if (reel_pct < 0) reel_pct = 0;
     if (reel_pct > 100) reel_pct = 100;
 
-    uint32_t arc_color;
-    if (fs.tension_pct < 50)       arc_color = 0x00FF88;
-    else if (fs.tension_pct < 75)  arc_color = 0xFFAA00;
-    else                           arc_color = 0xFF4444;
-
-    if (lbl_weather) {
-        lv_arc_set_value(lbl_weather, reel_pct);
-        lv_obj_set_style_arc_color(lbl_weather, lv_color_hex(arc_color), LV_PART_INDICATOR);
-    }
-
-    if (lbl_time) {
-        char buf[16];
-        snprintf(buf, sizeof(buf), "%dm", (int)fs.line_distance);
-        lv_obj_set_style_text_font(lbl_time, &lv_font_montserrat_48, 0);
-        lv_label_set_text(lbl_time, buf);
-        lv_obj_set_style_text_color(lbl_time, lv_color_hex(0xFFFFFF), 0);
-        lv_obj_set_style_text_align(lbl_time, LV_TEXT_ALIGN_CENTER, 0);
-        lv_obj_set_width(lbl_time, 360);
-    }
-
-    if (lbl_date) {
-        const char* state_text;
-        uint32_t state_color;
-        switch (fs.fish_phase) {
-            case PHASE_CALM:     state_text = "Rolig";     state_color = 0x448844; break;
-            case PHASE_RESTLESS: state_text = "Urolig";    state_color = 0xFFAA00; break;
-            case PHASE_FIGHTING: state_text = "Kjemper!";  state_color = 0xFF8800; break;
-            case PHASE_SURGING:  state_text = "DRAR!";     state_color = 0xFF4444; break;
-            case PHASE_TIRED:    state_text = "Sliten";    state_color = 0x4488AA; break;
-            default:             state_text = "";          state_color = 0x888888; break;
+    // Background tint: subtle red when tension high (quantized to reduce style thrashing)
+    {
+        static uint8_t last_bg_r = 0;
+        uint8_t bg_r = 0;
+        if (fs.tension_pct > 60.0f) {
+            float danger = (fs.tension_pct - 60.0f) / 40.0f;
+            bg_r = (uint8_t)(danger * 0x30);
+            bg_r = (bg_r / 8) * 8;  // quantize to steps of 8
         }
-        lv_label_set_text(lbl_date, state_text);
-        lv_obj_set_style_text_color(lbl_date, lv_color_hex(state_color), 0);
+        if (bg_r != last_bg_r) {
+            lv_obj_set_style_bg_color(scr, lv_color_make(bg_r, 0, 0), 0);
+            last_bg_r = bg_r;
+        }
     }
 
+    // --- Cache previous values to avoid redundant LVGL style calls ---
+    static int prev_reel_pct = -1;
+    static int prev_tension_band = -1;
+    static int prev_phase = -1;
+    static int prev_distance = -1;
+    static int prev_bar_w = -1;
+    static int prev_speed_pct = -1;
+    static bool prev_in_zone = false;
+    static bool fight_cache_init = false;
+
+    // Reset ALL caches on any state change so stale text doesn't linger
+    static int prev_game_state = -1;
+    if ((int)fs.game_state != prev_game_state) {
+        prev_reel_pct = prev_tension_band = prev_phase = -1;
+        prev_distance = prev_bar_w = prev_speed_pct = -1;
+        prev_in_zone = false;
+        fight_cache_init = false;
+        // Reset background to black on state change
+        lv_obj_set_style_bg_color(scr, lv_color_hex(0x000000), 0);
+        prev_game_state = (int)fs.game_state;
+    }
+    if (fs.game_state == FISH_FIGHTING && !fight_cache_init) {
+        fight_cache_init = true;
+    }
+
+    // Tension color band (quantized to 3 levels to avoid style thrashing)
+    int tension_band = (fs.tension_pct < 50) ? 0 : (fs.tension_pct < 75) ? 1 : 2;
+    uint32_t band_colors[] = {0x00FF88, 0xFFAA00, 0xFF4444};
+    lv_color_t arc_col = lv_color_hex(band_colors[tension_band]);
+
+    // Reel arc — clamp 2-98 for safety, vary width with speed
+    if (reel_pct < 2) reel_pct = 2;
+    if (reel_pct > 98) reel_pct = 98;
+    if (lbl_weather) {
+        if (reel_pct != prev_reel_pct) {
+            lv_arc_set_value(lbl_weather, reel_pct);
+            prev_reel_pct = reel_pct;
+        }
+        if (tension_band != prev_tension_band) {
+            lv_obj_set_style_arc_color(lbl_weather, arc_col, LV_PART_INDICATOR);
+        }
+        // Arc width pulses with reel speed (thicker = faster reeling)
+        int arc_w = 14 + (int)(fs.reel_speed * 1.5f);
+        if (arc_w > 30) arc_w = 30;
+        lv_obj_set_style_arc_width(lbl_weather, arc_w, LV_PART_INDICATOR);
+    }
+
+    bool in_zone = (fs.reel_speed >= fs.optimal_speed_lo && fs.reel_speed <= fs.optimal_speed_hi);
+
+    // Distance label — only update text on meter change
+    if (lbl_time) {
+        int dist = (int)fs.line_distance;
+        if (dist != prev_distance) {
+            char buf[16];
+            snprintf(buf, sizeof(buf), "%dm", dist);
+            lv_label_set_text(lbl_time, buf);
+            prev_distance = dist;
+        }
+        if (tension_band != prev_tension_band) {
+            lv_obj_set_style_text_color(lbl_time, arc_col, 0);
+        }
+    }
+
+    // Fish state — only update on phase change or tension band change
+    if (lbl_date) {
+        int phase_key = (int)fs.fish_phase;
+        bool danger = fs.tension_pct > 85.0f;
+        if (danger) phase_key = 99;  // force update when in danger
+
+        if (phase_key != prev_phase || tension_band != prev_tension_band) {
+            const char* state_text;
+            uint32_t state_color;
+            if (danger) {
+                state_text = "!! FARE !!";
+                state_color = 0xFF0000;
+            } else {
+                switch (fs.fish_phase) {
+                    case PHASE_CALM:     state_text = "~ Rolig ~";       state_color = 0x448844; break;
+                    case PHASE_RESTLESS: state_text = "- Urolig -";      state_color = 0xFFAA00; break;
+                    case PHASE_FIGHTING: state_text = "!! KJEMPER !!";   state_color = 0xFF8800; break;
+                    case PHASE_SURGING:  state_text = ">>> DRAR! <<<";   state_color = 0xFF4444; break;
+                    case PHASE_TIRED:    state_text = ". Sliten .";      state_color = 0x4488AA; break;
+                    default:             state_text = "";                 state_color = 0x888888; break;
+                }
+            }
+            lv_label_set_text(lbl_date, state_text);
+            lv_obj_set_style_text_color(lbl_date, lv_color_hex(state_color), 0);
+            prev_phase = phase_key;
+        }
+    }
+
+    // Tension bar — only resize on change, clamp min width to 1
     if (lbl_info) {
         int bar_w = (int)(fs.tension_pct * 2.0f);
-        if (bar_w < 0) bar_w = 0;
+        if (bar_w < 1) bar_w = 1;
         if (bar_w > 200) bar_w = 200;
-        lv_obj_set_size(lbl_info, bar_w, 8);
-        lv_obj_set_style_bg_color(lbl_info, lv_color_hex(arc_color), 0);
-        lv_obj_align(lbl_info, LV_ALIGN_CENTER, 0, 50);
+        if (bar_w != prev_bar_w) {
+            lv_obj_set_size(lbl_info, bar_w, 8);
+            lv_obj_align(lbl_info, LV_ALIGN_CENTER, -(200 - bar_w) / 2, 42);
+            prev_bar_w = bar_w;
+        }
+        if (tension_band != prev_tension_band) {
+            lv_obj_set_style_bg_color(lbl_info, arc_col, 0);
+        }
     }
 
+    prev_tension_band = tension_band;
+
+    // Speed zone + steadiness
+    if (fish_steady_lbl) {
+        const char* zone_text = in_zone ? "I SONEN" : "UTENFOR";
+        uint32_t zone_col = in_zone ? 0x00FF88 : 0xFF6600;
+        lv_label_set_text(fish_steady_lbl, zone_text);
+        lv_obj_set_style_text_color(fish_steady_lbl, lv_color_hex(zone_col), 0);
+    }
+
+    // Efficiency + steadiness combined
+    if (fish_eff_lbl) {
+        char buf[20];
+        snprintf(buf, sizeof(buf), "x%.1f  S%d%%", fs.reel_efficiency, (int)fs.steadiness);
+        lv_label_set_text(fish_eff_lbl, buf);
+        uint32_t eff_col = (fs.reel_efficiency >= 1.0f) ? 0x00FF88 : 0xFF6600;
+        lv_obj_set_style_text_color(fish_eff_lbl, lv_color_hex(eff_col), 0);
+    }
+
+    // Fight info — fish type hidden! Only time + tension shown
     if (lbl_debug) {
-        const char* speed_text;
-        if (fs.reel_speed < 0.5f)      speed_text = "";
-        else if (fs.reel_speed < 2.0f) speed_text = "Sakte";
-        else if (fs.reel_speed < 4.0f) speed_text = "Middels";
-        else if (fs.reel_speed < 6.0f) speed_text = "Fort";
-        else                           speed_text = "Maks!";
-        lv_label_set_text(lbl_debug, speed_text);
+        char info_buf[32];
+        uint32_t secs = fs.fight_time_ms / 1000;
+        snprintf(info_buf, sizeof(info_buf), "??? | %u:%02u | %d%%",
+                 (unsigned)(secs / 60), (unsigned)(secs % 60),
+                 (int)fs.tension_pct);
+        lv_label_set_text(lbl_debug, info_buf);
     }
 
     lv_obj_invalidate(lv_screen_active());

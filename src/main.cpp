@@ -24,6 +24,7 @@ static bool latch_longPressed = false;
 static int latch_x = 0, latch_y = 0;
 static uint32_t latch_touch_time = 0;  // last time touch_read returned true
 static int32_t fish_enc_base = 0;     // encoder count when entering fishing screen
+static bool fish_screen_entered = false;
 
 void setup() {
     Serial.begin(115200);
@@ -48,10 +49,13 @@ void loop() {
     // WiFi health check
     wifi_check();
 
-    // Read touch
+    // Read touch (skip on fishing screen — frees I2C bus for haptic)
     int tx = 0, ty = 0;
-    bool touching = touch_read(&tx, &ty);
-    touch_update(touching, tx, ty);
+    bool touching = false;
+    if (currentScreen != SCREEN_ANIM) {
+        touching = touch_read(&tx, &ty);
+        touch_update(touching, tx, ty);
+    }
 
     // Latch touch state — debounce the pulsing INT pin
     // Use 150ms gap to consider finger truly lifted (INT pulses every ~30ms)
@@ -105,28 +109,70 @@ void loop() {
     if (currentScreen == SCREEN_ANIM) {
         FishingState fs = fishing_get_state();
 
-        if (fs.game_state == FISH_FIGHTING) {
-            // During fight: encoder controls reel, no screen switching
-            int32_t delta = encoder_get_count() - fish_enc_base;
+        // Touch DISABLED on fishing screen — frees I2C for haptic
+        latch_tapped = false;
+        latch_longPressed = false;
+
+        // Simple encoder tracking — no complex windows
+        static int32_t fish_nav_acc = 0;   // accumulated nav delta
+        static uint32_t fish_enter_time = 0;
+
+        if (!fish_screen_entered) {
             fish_enc_base = encoder_get_count();
-            fishing_tick(delta);
+            fish_nav_acc = 0;
+            fish_enter_time = now;
+            fish_screen_entered = true;
+        }
+
+        if (fs.game_state == FISH_FIGHTING) {
+            // During fight: encoder controls reel only
+            static uint32_t last_fish_tick = 0;
+            if (now - last_fish_tick >= 50) {
+                int32_t delta = encoder_get_count() - fish_enc_base;
+                fish_enc_base = encoder_get_count();
+                fishing_tick(delta);
+                last_fish_tick = now;
+            }
+            fish_nav_acc = 0;  // reset nav accumulator during fight
         } else {
-            // IDLE / WON / LOST: tap to start/restart, encoder navigates
-            if (latch_tapped) {
-                if (fs.game_state == FISH_IDLE || fs.game_state == FISH_WON || fs.game_state == FISH_LOST) {
+            // IDLE / WON / LOST
+            // 1s cooldown on entry + 2s cooldown after game end
+            bool in_cooldown = (now - fish_enter_time < 1000) ||
+                               (fs.end_time_ms > 0 && now - fs.end_time_ms < 2000);
+
+            int32_t raw_delta = encoder_get_count() - fish_enc_base;
+            fish_enc_base = encoder_get_count();
+
+            if (in_cooldown) {
+                // Absorb everything during cooldown
+                fish_nav_acc = 0;
+            } else {
+                fish_nav_acc += raw_delta;
+
+                if (fish_nav_acc > 3) {
+                    // Fast CW = cast!
                     fishing_start();
                     fish_enc_base = encoder_get_count();
+                    fish_nav_acc = 0;
+                    fish_enter_time = now;
+                    haptic_play(HAPTIC_BUZZ);
+                } else if (fish_nav_acc < -2) {
+                    // CCW = exit to previous screen
+                    fish_screen_entered = false;
+                    int prev = (SCREEN_ANIM - 1 + SCREEN_COUNT) % SCREEN_COUNT;
+                    encoder_set_screen(prev);
+                    currentScreen = (Screen)prev;
+                    lastDraw = 0;
+                    haptic_play(HAPTIC_CLICK);
                 }
-                latch_tapped = false;
-            }
 
-            // Allow screen switching when not fighting
-            encoder_update_screen(SCREEN_COUNT);
-            Screen newScreen = (Screen)encoder_get_screen(SCREEN_COUNT);
-            if (newScreen != currentScreen) {
-                currentScreen = newScreen;
-                lastDraw = 0;
-                haptic_play(HAPTIC_CLICK);
+                // Slow decay — only every 500ms to prevent draining fast input
+                static uint32_t last_decay = 0;
+                if (raw_delta == 0 && now - last_decay >= 500) {
+                    if (fish_nav_acc > 0) fish_nav_acc--;
+                    else if (fish_nav_acc < 0) fish_nav_acc++;
+                    last_decay = now;
+                }
             }
         }
         latch_tapped = false;
@@ -138,6 +184,7 @@ void loop() {
         if (newScreen != currentScreen) {
             if (newScreen == SCREEN_ANIM) {
                 fish_enc_base = encoder_get_count();
+                fish_screen_entered = false;  // trigger re-init on next frame
             }
             currentScreen = newScreen;
             lastDraw = 0;
@@ -216,6 +263,6 @@ void loop() {
         display_flush();
     }
 
-    // LVGL tick — drives animations and rendering
+    // LVGL tick — drives rendering
     lv_timer_handler();
 }
