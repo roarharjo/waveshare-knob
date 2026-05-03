@@ -1,33 +1,31 @@
 # Waveshare ESP32-S3 Knob
 
-Multi-screen smart knob app for the [Waveshare ESP32-S3 Touch LCD 1.28](https://www.waveshare.com/wiki/ESP32-S3-Touch-LCD-1.28) round display with rotary encoder, touch, and haptic feedback.
+Multi-screen smart knob app for the [Waveshare ESP32-S3 Touch LCD 1.28](https://www.waveshare.com/wiki/ESP32-S3-Touch-LCD-1.28) — a round 360x360 display with rotary encoder, capacitive touch, and haptic feedback.
+
+Rotate the encoder to switch screens. Touch and haptics throughout.
 
 ## Screens
 
-1. **Klokke** — NTP clock with date and weather summary (Europe/Oslo)
-2. **Vaer** — Weather for Vadso from Open-Meteo, Norwegian condition names
-3. **Diagnostikk** — WiFi RSSI, heap, PSRAM, uptime, encoder count
-4. **Touch Test** — Live touch coordinates, tap/hold detection, touch point indicator
-5. **Fiskespill** — Fishing reel game with haptic feedback and tension mechanics
-
-Navigate between screens by rotating the encoder. Touch and haptic feedback throughout.
+| # | Screen | Description |
+|---|--------|-------------|
+| 1 | **Klokke** | NTP clock with date and weather summary (Europe/Oslo) |
+| 2 | **Vaer** | Weather for Vadso via Open-Meteo, Norwegian condition names |
+| 3 | **Diagnostikk** | WiFi RSSI, heap, PSRAM, uptime, encoder count |
+| 4 | **Touch Test** | Live touch coordinates, tap/hold detection, touch point indicator |
+| 5 | **Fiskespill** | Fishing reel game — cast, fight, and land fish with the knob |
 
 ## Fiskespill (Fishing Game)
 
-The rotary encoder becomes a fishing reel. Cast by spinning CW fast, then reel in by spinning CCW. The outer arc shows line remaining, the center shows distance, fish state, and tension.
+The rotary encoder becomes a fishing reel. Spin CW fast to cast, then reel in with CCW. The outer arc shows line remaining; the center shows distance, fish state, and tension. Touch is disabled on this screen (hand grips the knob).
 
-**Controls:**
-- **Fast CW** — Cast (start/restart game)
-- **CCW** — Reel in during fight / exit screen when idle
-- Touch is disabled on this screen (hand grips the knob)
+| Input | Action |
+|-------|--------|
+| Fast CW | Cast (start / restart) |
+| CCW | Reel in during fight, exit when idle |
 
-**Fish types:** Kontepella, Sei, Torsk, Laks, Kveite (hidden during fight, revealed on catch)
+**Fish:** Kontepella, Sei, Torsk, Laks, Kveite — species is hidden during the fight and revealed on catch.
 
-**Mechanics:**
-- Fish AI cycles through calm/restless/fighting/surging/tired phases
-- Optimal speed zone shifts per phase — reel too fast during a surge and the line snaps
-- Steadiness and acceleration affect tension and reel efficiency
-- Haptic feedback scales with reel speed, fish phase, and tension level
+**Mechanics:** Fish AI cycles through calm / restless / fighting / surging / tired phases. The optimal reel speed shifts per phase — reel too fast during a surge and the line snaps. Steadiness and acceleration affect tension and efficiency. Haptic feedback scales with speed, phase, and tension.
 
 ## Hardware
 
@@ -36,7 +34,7 @@ The rotary encoder becomes a fishing reel. Cast by spinning CW fast, then reel i
 - **Encoder:** Bidirectional switch (not quadrature — one channel per direction)
 - **Touch:** CST816T capacitive, I2C 0x15
 - **Haptic:** DRV2605L LRA motor, I2C 0x5A, library 6
-- **Two ESP chips** on one USB-C: flip cable to select ESP32-S3 (COM9) vs ESP32 (COM7)
+- **USB:** Two ESP chips share one USB-C — flip cable to select ESP32-S3 (COM9) vs ESP32 (COM7)
 
 ## Build & Flash
 
@@ -85,11 +83,7 @@ include/
   secrets.h           # WiFi credentials, location, timezone (gitignored)
   secrets.example.h   # Template for secrets.h
 docs/
-  TECHNICAL_REFERENCE.md                          # Hardware details, driver notes
-  superpowers/specs/2026-05-03-fishing-game-design.md  # Fishing game design spec
-  superpowers/plans/2026-05-03-fishing-game.md         # Implementation plan
+  TECHNICAL_REFERENCE.md   # Hardware details, driver notes
 ```
 
-## UI Language
-
-All on-screen text is in Norwegian (Bokmal). ASCII only — Montserrat font lacks ae/oe/aa.
+All on-screen text is in Norwegian (Bokmal). ASCII only — the Montserrat font lacks ae/oe/aa.
