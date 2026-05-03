@@ -257,24 +257,24 @@ weather_init()   → (no-op)
 
 ---
 
-## 7. Current State (v2)
+## 7. Current State (v3)
 
 ### Working
 - **Display**: LVGL 9 via custom QSPI driver with Waveshare init
 - **Encoder**: Timer-polled bidi switch, reliable CW/CCW, 1 step per detent
 - **Touch**: CST816T coordinates, tap detection, hold detection
-- **Haptic**: DRV2605L LRA, click on encoder turns and touch events
+- **Haptic**: DRV2605L LRA, scaled click intensity, phase-based feedback
 - **Clock**: NTP time (24h, Europe/Oslo), Norwegian date format
 - **Weather**: Open-Meteo for Vadso, Norwegian condition names
-- **5 screens**: Klokke, Vaer, Diagnostikk, Touch Test, Volum
-- **Volume knob**: Arc UI with encoder control, mute/back buttons
+- **5 screens**: Klokke, Vaer, Diagnostikk, Touch Test, Fiskespill
+- **Fishing game**: Reel game with 5 fish types, AI behavior, tension/speed mechanics, haptic feedback
 - **UI language**: Norwegian (limited to ASCII — no ae/oe/aa in Montserrat font)
 
 ### Known Issues / Limitations
-- **Touch button precision**: Raw `touch_read()` returns data only when INT is LOW (~30ms pulses). Button responsiveness depends on loop speed — any blocking operation reduces hit rate
-- **LVGL animations**: `lv_anim_*` API compiles but animations don't render. Suspected cause: `lv_timer_handler()` doesn't trigger display refresh for animation-modified objects. Manual `lv_refr_now()` forces static render only
-- **Montserrat font**: LVGL's bundled font only includes ASCII. Norwegian characters (ae, oe, aa) require custom font build
-- **No factory firmware backup**: Original firmware was not saved before flashing
+- **LVGL arc crash**: `lv_arc_set_value(0)` or `lv_arc_set_value(100)` triggers null pointer in `circ_calc_aa4` (LVGL 9.2 bug). Workaround: clamp arc values to 2-98.
+- **I2C bus contention**: Touch and haptic share I2C bus. Touch reads disabled on fishing screen to prevent crashes during fast haptic writes.
+- **Montserrat font**: LVGL's bundled font only includes ASCII. Norwegian characters (ae, oe, aa) require custom font build.
+- **No factory firmware backup**: Original firmware was not saved before flashing.
 
 ### Project Structure
 ```
@@ -285,18 +285,19 @@ waveshare_knob/
 │   ├── secrets.h               # WiFi, location, timezone (gitignored)
 │   └── secrets.example.h
 ├── src/
-│   ├── main.cpp                # Setup + main loop + touch state machine
+│   ├── main.cpp                # Setup + main loop + screen dispatch
 │   ├── display.cpp/.h          # QSPI driver + LVGL + all screen layouts
+│   ├── fishing.cpp/.h          # Fishing reel game module
 │   ├── encoder.cpp/.h          # Timer-polled bidi switch driver
 │   ├── touch.cpp/.h            # CST816T I2C reader
 │   ├── haptic.cpp/.h           # DRV2605L driver
 │   ├── wifi_manager.cpp/.h     # WiFi connect/reconnect
 │   ├── ntp_time.cpp/.h         # NTP with Norwegian date format
 │   └── weather.cpp/.h          # Open-Meteo with Norwegian conditions
-├── docs/superpowers/
-│   ├── specs/                  # Design specs
-│   └── plans/                  # Implementation plans
-├── temp_demo/                  # Official Waveshare demo
+├── docs/
+│   ├── TECHNICAL_REFERENCE.md  # Hardware details, driver notes
+│   └── superpowers/            # Design specs and implementation plans
+├── temp_demo/                  # Official Waveshare demo (reference)
 ├── temp_volosr/                # VolosR project (display init source)
 ├── temp_krx3d/                 # KrX3D ESPHome (encoder + haptic config)
 ├── temp_iot/                   # Espressif esp-iot-solution
